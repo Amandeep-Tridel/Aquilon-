@@ -30,14 +30,14 @@ WAYPOINTS = [
 DETECTION_RANGE = 30.0    # sonar detection range
 SLOW_RANGE = 20.0         # slow down zone
 CREEP_RANGE = 12.0        # creep speed zone
-STOP_RANGE = 5.0          # emergency full stop
+FLEE_RANGE = 6.0          # FLEE: too close, accelerate away
 
 # --- Speed Limits ---
 SPEED_CRUISE = 2.5
 SPEED_FAST = 3.5
+SPEED_FLEE = 4.5          # max escape speed
 SPEED_SLOW = 1.5
 SPEED_CREEP = 0.6
-SPEED_STOP = 0.0
 
 # --- PID Heading Controller ---
 KP_HEADING = 3.0
@@ -50,6 +50,7 @@ MAX_TURN_RATE = 60.0      # deg/s
 KP_SPEED = 2.0
 KD_SPEED = 0.5
 MAX_ACCEL = 2.0           # m/s^2
+MAX_ACCEL_FLEE = 6.0      # m/s^2 (emergency burst)
 MAX_DECEL = 4.0           # m/s^2 (braking is faster)
 
 # --- Timing ---
@@ -232,7 +233,7 @@ class FakeGpsObstacleNode(Node):
         self.get_logger().info(f'  {len(WAYPOINTS)} waypoints, {len(OBSTACLES)} obstacles')
         self.get_logger().info(f'  Sim={SIM_HZ}Hz, Markers={MARKER_HZ}Hz, GPS={GPS_HZ}Hz')
         self.get_logger().info(f'  Zones: detect={DETECTION_RANGE}m, slow={SLOW_RANGE}m, '
-                               f'creep={CREEP_RANGE}m, stop={STOP_RANGE}m')
+                               f'creep={CREEP_RANGE}m, flee={FLEE_RANGE}m')
         for i, obs in enumerate(OBSTACLES):
             self.get_logger().info(
                 f'  OBS {i}: ({obs.cx},{obs.cy}) r={obs.radius}m '
@@ -306,8 +307,8 @@ class FakeGpsObstacleNode(Node):
                 if norm < 0.1:
                     continue
 
-                if eff_dist < STOP_RANGE:
-                    strength = 12.0
+                if eff_dist < FLEE_RANGE:
+                    strength = 20.0  # max repulsion — flee away
                 elif eff_dist < CREEP_RANGE:
                     strength = 6.0 * (1.0 - eff_dist / CREEP_RANGE)
                 elif eff_dist < SLOW_RANGE:
@@ -329,21 +330,29 @@ class FakeGpsObstacleNode(Node):
         """Determine target speed based on closest obstacle zone."""
         min_dist = 999.0
         any_closing = False
+        closest_closing = False
 
         for t in threats:
             eff = min(t['dist'], t['cpa_dist'])
             if eff < min_dist:
                 min_dist = eff
+                closest_closing = t['closing']
             if t['closing'] and t['dist'] < SLOW_RANGE:
                 any_closing = True
 
         self._eff_min_dist = min_dist
 
-        if min_dist < STOP_RANGE:
-            return SPEED_STOP, 'STOPPED'
+        if min_dist < FLEE_RANGE:
+            # Too close — flee at max speed away from obstacle
+            return SPEED_FLEE, 'FLEE'
         elif min_dist < CREEP_RANGE:
-            frac = (min_dist - STOP_RANGE) / (CREEP_RANGE - STOP_RANGE)
-            return SPEED_CREEP * frac, 'CREEP'
+            if closest_closing:
+                # Obstacle approaching — speed up to escape
+                urgency = 1.0 - (min_dist - FLEE_RANGE) / (CREEP_RANGE - FLEE_RANGE)
+                spd = SPEED_CREEP + (SPEED_FAST - SPEED_CREEP) * urgency
+                return spd, 'EVADE'
+            frac = (min_dist - FLEE_RANGE) / (CREEP_RANGE - FLEE_RANGE)
+            return SPEED_CREEP * frac + SPEED_CREEP * (1 - frac), 'CREEP'
         elif min_dist < SLOW_RANGE:
             frac = (min_dist - CREEP_RANGE) / (SLOW_RANGE - CREEP_RANGE)
             spd = SPEED_CREEP + (SPEED_SLOW - SPEED_CREEP) * frac
@@ -396,45 +405,31 @@ class FakeGpsObstacleNode(Node):
                 self.get_logger().info(
                     f'STATE: {old_state} -> {new_state} '
                     f'(spd={self.target_speed:.1f}, nearest={self._eff_min_dist:.0f}m)')
-                if new_state == 'STOPPED':
-                    self.stopped_time = 0.0
-                    self.heading_pid.reset()
 
-            # STOPPED: hold position, rotate to find escape
-            if self.state == 'STOPPED':
-                self.stopped_time += dt
-                self.actual_speed = 0.0
-                if self.stopped_time > 1.5:
-                    desired = self.compute_avoidance_heading(threats, tx, ty)
-                    hdg_err = angle_diff(desired, self.heading)
-                    turn = clamp(hdg_err, -MAX_TURN_RATE * dt, MAX_TURN_RATE * dt)
-                    self.heading = (self.heading + turn) % 360.0
-                    escape_ok = all(
-                        t['dist'] >= STOP_RANGE * 1.5 or
-                        abs(angle_diff(self.heading,
-                            math.degrees(math.atan2(t['dx'], t['dy'])) % 360.0)) > 60
-                        for t in threats
-                    )
-                    if escape_ok and self.stopped_time > 2.5:
-                        self.target_speed = SPEED_CREEP
-                        self.state = 'CREEP'
-                        self.get_logger().info('ESCAPE: creeping forward')
-            else:
-                # PID heading control
-                desired_heading = self.compute_avoidance_heading(threats, tx, ty)
-                hdg_err = angle_diff(desired_heading, self.heading)
-                pid_out = self.heading_pid.update(hdg_err, dt)
-                turn = clamp(pid_out * dt, -MAX_TURN_RATE * dt, MAX_TURN_RATE * dt)
-                self.heading = (self.heading + turn) % 360.0
+            # PID heading control — always active (FLEE steers away hard)
+            desired_heading = self.compute_avoidance_heading(threats, tx, ty)
+            hdg_err = angle_diff(desired_heading, self.heading)
 
-            # Speed PID: smooth accel/decel
+            # Faster turn rate when fleeing
+            turn_rate = MAX_TURN_RATE * 2.0 if self.state == 'FLEE' else MAX_TURN_RATE
+            pid_out = self.heading_pid.update(hdg_err, dt)
+            turn = clamp(pid_out * dt, -turn_rate * dt, turn_rate * dt)
+            self.heading = (self.heading + turn) % 360.0
+
+            # Speed PID: smooth accel/decel (burst accel when fleeing)
             speed_err = self.target_speed - self.actual_speed
             speed_cmd = self.speed_pid.update(speed_err, dt)
+            if self.state in ('FLEE', 'EVADE'):
+                max_accel = MAX_ACCEL_FLEE * dt
+                max_speed = SPEED_FLEE
+            else:
+                max_accel = MAX_ACCEL * dt
+                max_speed = SPEED_FAST
             if speed_cmd > 0:
-                accel = min(speed_cmd, MAX_ACCEL * dt)
+                accel = min(speed_cmd, max_accel)
             else:
                 accel = max(speed_cmd, -MAX_DECEL * dt)
-            self.actual_speed = clamp(self.actual_speed + accel, 0.0, SPEED_FAST)
+            self.actual_speed = clamp(self.actual_speed + accel, 0.0, max_speed)
 
             # Move USV
             if self.actual_speed > 0.005:
@@ -488,7 +483,7 @@ class FakeGpsObstacleNode(Node):
                 msg.data = alert
                 self.pub_alert.publish(msg)
             elif d < CREEP_RANGE:
-                status = 'STOPPED' if d < STOP_RANGE else 'CREEPING'
+                status = 'FLEEING' if d < FLEE_RANGE else 'CREEPING'
                 msg = String()
                 msg.data = (f'{status}: id={obs_id}, range={d:.1f}m, '
                             f'speed={self.actual_speed:.1f}m/s')
