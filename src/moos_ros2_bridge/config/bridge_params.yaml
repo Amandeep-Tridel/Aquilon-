@@ -15,3 +15,9 @@ moos_ros2_bridge:
     ros_to_moos:
       - "/cmd/speed:DESIRED_SPEED:double"
       - "/cmd/heading:DESIRED_HEADING:double"
+      - "/gps/x:GPS_X:double"
+      - "/gps/y:GPS_Y:double"
+      - "/gps/heading:GPS_HEADING:double"
+      - "/gps/speed:GPS_SPEED:double"
+      - "/gps/lat:GPS_LAT:double"
+      - "/gps/lon:GPS_LON:double"

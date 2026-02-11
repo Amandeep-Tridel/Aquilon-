@@ -1,0 +1,24 @@
+moos_ros2_bridge:
+  ros__parameters:
+    moos_host: "localhost"
+    moos_port: 9000
+    moos_name: "moos_ros2_bridge"
+    poll_rate_hz: 10.0
+
+    moos_to_ros:
+      - "DB_UPTIME:/moos/db_uptime:double"
+
+    ros_to_moos:
+      # Fake GPS -> MOOS NAV
+      - "/gps/x:NAV_X:double"
+      - "/gps/y:NAV_Y:double"
+      - "/gps/heading:NAV_HEADING:double"
+      - "/gps/speed:NAV_SPEED:double"
+      - "/gps/lat:GPS_LAT:double"
+      - "/gps/lon:GPS_LON:double"
+      # Obstacle detection
+      - "/obstacle/alert:OBSTACLE_ALERT:string"
+      - "/obstacle/range:OBSTACLE_RANGE:double"
+      - "/obstacle/count:OBSTACLE_COUNT:double"
+      # View markers (polygons rendered in pMarineViewer)
+      - "/view_marker:VIEW_POLYGON:string"
