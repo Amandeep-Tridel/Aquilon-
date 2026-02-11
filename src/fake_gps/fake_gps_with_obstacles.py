@@ -167,12 +167,16 @@ class MovingObstacle:
         return ':'.join(pts)
 
 
-# 4 moving obstacles (small radii)
+# 8 moving obstacles (small radii)
 OBSTACLES = [
     MovingObstacle(100, -35, 4, 'horizontal', 0.3, 'red'),
     MovingObstacle(160, -80, 5, 'circle', 0.2, 'orange'),
     MovingObstacle(60, -120, 3, 'vertical', 0.25, 'red'),
     MovingObstacle(180, -150, 6, 'diagonal', 0.15, 'orange'),
+    MovingObstacle(50, -50, 4, 'circle', 0.35, 'yellow'),
+    MovingObstacle(200, -35, 3, 'vertical', 0.4, 'white'),
+    MovingObstacle(120, -140, 5, 'horizontal', 0.2, 'red'),
+    MovingObstacle(140, -50, 4, 'diagonal', 0.3, 'orange'),
 ]
 
 
