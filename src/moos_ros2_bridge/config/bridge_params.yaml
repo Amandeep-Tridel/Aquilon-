@@ -1,0 +1,17 @@
+moos_ros2_bridge:
+  ros__parameters:
+    moos_host: "localhost"
+    moos_port: 9000
+    moos_name: "moos_ros2_bridge"
+    poll_rate_hz: 10.0
+
+    # Format: "MOOS_VAR:/ros_topic:type"  (type is "double" or "string")
+    moos_to_ros:
+      - "NAV_X:/moos/nav_x:double"
+      - "NAV_Y:/moos/nav_y:double"
+      - "NAV_HEADING:/moos/nav_heading:double"
+
+    # Format: "/ros_topic:MOOS_VAR:type"
+    ros_to_moos:
+      - "/cmd/speed:DESIRED_SPEED:double"
+      - "/cmd/heading:DESIRED_HEADING:double"
