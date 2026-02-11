@@ -82,9 +82,19 @@ Key design: Uses `CMOOSCommClient` (non-blocking) instead of `CMOOSApp` to avoid
 **Avoidance features:**
 - PID heading controller (proportional + integral + derivative with anti-windup)
 - PID speed controller with rate-limited acceleration/deceleration
-- 5 speed zones: FAST (3.5 m/s) > CRUISE (2.5) > SLOW (1.5) > CREEP (0.6) > STOP (0.0)
+- 6 speed states with active collision avoidance (never stops — always flees):
+
+| State | Speed | Trigger | Behavior |
+|-------|-------|---------|----------|
+| FLEE | 4.5 m/s | Obstacle < 6m | Burst acceleration (6x), double turn rate, max speed escape |
+| EVADE | up to 3.5 m/s | Obstacle < 12m & closing | Speed up proportional to urgency |
+| CREEP | 0.6 m/s | Obstacle < 12m | Minimal forward, steering around |
+| SLOW | 1.5 m/s | Obstacle < 20m | Cautious approach, extra caution if closing |
+| CRUISE | 2.5 m/s | Obstacle < 30m | Normal navigation with avoidance steering |
+| FAST | 3.5 m/s | All clear > 5s | Speed boost on open water |
+
 - Closest Point of Approach (CPA) prediction using relative velocity
-- Emergency stop with rotate-to-escape recovery
+- Velocity obstacle model: predicts future collision risk, not just current distance
 - Speed boost when all-clear for 5+ seconds
 
 **4 obstacle patterns:**
