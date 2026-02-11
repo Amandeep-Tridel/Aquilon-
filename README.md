@@ -97,11 +97,18 @@ Key design: Uses `CMOOSCommClient` (non-blocking) instead of `CMOOSApp` to avoid
 - Velocity obstacle model: predicts future collision risk, not just current distance
 - Speed boost when all-clear for 5+ seconds
 
-**4 obstacle patterns:**
-- Horizontal patrol (red, r=4m)
-- Circular orbit (orange, r=5m)
-- Vertical patrol (red, r=3m)
-- Diagonal wander (orange, r=6m)
+**8 moving obstacles:**
+
+| ID | Pattern | Color | Radius | Location | Description |
+|----|---------|-------|--------|----------|-------------|
+| 0 | Horizontal | Red | 4m | (100, -35) | Patrols lane 1-2 |
+| 1 | Circle | Orange | 5m | (160, -80) | Orbits lane 3 |
+| 2 | Vertical | Red | 3m | (60, -120) | Patrols lane 4-5 |
+| 3 | Diagonal | Orange | 6m | (180, -150) | Wanders lane 5-6 |
+| 4 | Circle | Yellow | 4m | (50, -50) | Orbits near lane 2 |
+| 5 | Vertical | White | 3m | (200, -35) | Patrols right edge |
+| 6 | Horizontal | Red | 5m | (120, -140) | Patrols lane 5 |
+| 7 | Diagonal | Orange | 4m | (140, -50) | Wanders lane 2 |
 
 ### Lawnmower Mission (`src/missions/s1_lawnmower/`)
 
