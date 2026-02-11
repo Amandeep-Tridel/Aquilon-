@@ -1,0 +1,104 @@
+//-------------------------------------------------
+// GPS Bridge Demo — Fake GPS via ROS 2 bridge
+// No simulator — position comes from ROS 2 fake GPS
+//-------------------------------------------------
+
+ServerHost   = localhost
+ServerPort   = 9000
+Community    = gps_demo
+MOOSTimeWarp = 1
+
+// Forest Lake
+LatOrigin  = 43.825300
+LongOrigin = -70.330400
+
+//------------------------------------------
+ProcessConfig = ANTLER
+{
+  MSBetweenLaunches = 200
+
+  Run = MOOSDB        @ NewConsole = false
+  Run = pMarineViewer  @ NewConsole = false
+  Run = pNodeReporter  @ NewConsole = false
+  Run = pLogger        @ NewConsole = false
+}
+
+//------------------------------------------
+ProcessConfig = pLogger
+{
+  AppTick   = 4
+  CommsTick = 4
+  AsyncLog  = true
+  WildCardLogging = true
+}
+
+//------------------------------------------
+ProcessConfig = pMarineViewer
+{
+  AppTick    = 4
+  CommsTick  = 4
+
+  tiff_file            = forrest19.tif
+
+  // Center view on survey area (center ~120, -95)
+  set_pan_x            = -120
+  set_pan_y            = -80
+  zoom                 = 0.65
+  vehicle_shape_scale  = 3.0
+  hash_delta           = 50
+  hash_shade           = 0.22
+  hash_viewable        = true
+
+  // Vehicle tracking
+  center_view          = average
+
+  trails_viewable      = true
+  trails_point_size    = 3
+  trails_length        = 2000
+  trails_color         = yellow
+
+  // Appcast
+  appcast_viewable     = true
+  appcast_color_scheme = indigo
+  nodes_font_size      = xlarge
+  procs_font_size      = xlarge
+  appcast_font_size    = large
+
+  // Scope — show GPS + obstacle data in viewer
+  scope = NAV_X
+  scope = NAV_Y
+  scope = NAV_HEADING
+  scope = NAV_SPEED
+  scope = GPS_LAT
+  scope = GPS_LON
+  scope = OBSTACLE_ALERT
+  scope = OBSTACLE_RANGE
+  scope = OBSTACLE_COUNT
+  scope = NODE_REPORT_LOCAL
+
+  // Survey area boundary
+  polygon = label,survey,20,-20:220,-20:220,-170:20,-170, edge_color=cyan, vertex_color=cyan, edge_size=2
+
+  // Obstacles (red filled circles)
+  polygon = label,OBS_1,70,-14:74,-10:80,-10:86,-10:90,-14:90,-20:90,-26:86,-30:80,-30:74,-30:70,-26:70,-20, edge_color=red, fill_color=red, fill_transparency=0.4, edge_size=2, vertex_size=0
+  polygon = label,OBS_2,148,-74:153,-69:160,-68:167,-69:172,-74:172,-80:172,-86:167,-91:160,-92:153,-91:148,-86:148,-80, edge_color=red, fill_color=red, fill_transparency=0.4, edge_size=2, vertex_size=0
+  polygon = label,OBS_3,52,-105:55,-103:60,-102:65,-103:68,-105:68,-110:68,-115:65,-117:60,-118:55,-117:52,-115:52,-110, edge_color=red, fill_color=red, fill_transparency=0.4, edge_size=2, vertex_size=0
+  polygon = label,OBS_4,165,-133:170,-128:180,-125:190,-128:195,-133:195,-140:195,-147:190,-152:180,-155:170,-152:165,-147:165,-140, edge_color=red, fill_color=red, fill_transparency=0.4, edge_size=2, vertex_size=0
+
+  // Detection range rings (yellow dashed)
+  polygon = label,DET_1,40,-20:50,2:65,12:80,20:95,12:110,2:120,-20:110,-42:95,-52:80,-60:65,-52:50,-42, edge_color=yellow, edge_size=1, vertex_size=0
+  polygon = label,DET_2,120,-80:130,-58:145,-48:160,-40:175,-48:190,-58:200,-80:190,-102:175,-112:160,-120:145,-112:130,-102, edge_color=yellow, edge_size=1, vertex_size=0
+  polygon = label,DET_3,20,-110:28,-90:42,-80:60,-72:78,-80:92,-90:100,-110:92,-130:78,-140:60,-148:42,-140:28,-130, edge_color=yellow, edge_size=1, vertex_size=0
+  polygon = label,DET_4,140,-140:150,-118:165,-108:180,-100:195,-108:210,-118:220,-140:210,-162:195,-172:180,-180:165,-172:150,-162, edge_color=yellow, edge_size=1, vertex_size=0
+}
+
+//------------------------------------------
+ProcessConfig = pNodeReporter
+{
+  AppTick    = 10
+  CommsTick  = 10
+
+  platform_type   = kayak
+  platform_color  = dodger_blue
+  platform_length = 4
+}
