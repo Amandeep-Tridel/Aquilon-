@@ -295,8 +295,8 @@ function drawObstacles() {
 
 function drawUSV() {
     if (!sim) return;
-    const [sx, sy] = w2s(sim.x, sim.y), rad = -toRad(sim.heading), sz = Math.max(7, 5 * cam.zoom);
-    const hl = sz * 3; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.sin(-rad) * hl, sy - Math.cos(-rad) * hl);
+    const [sx, sy] = w2s(sim.x, sim.y), rad = toRad(sim.heading), sz = Math.max(7, 5 * cam.zoom);
+    const hdgRad = toRad(sim.heading), hl = sz * 3; ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + Math.sin(hdgRad) * hl, sy - Math.cos(hdgRad) * hl);
     ctx.strokeStyle = 'rgba(59,130,246,0.4)'; ctx.lineWidth = 1; ctx.stroke();
     let gc; switch (sim.state) { case 'FLEE': gc = 'rgba(239,68,68,0.5)'; break; case 'EVADE': gc = 'rgba(249,115,22,0.4)'; break; case 'CREEP': gc = 'rgba(245,158,11,0.3)'; break; case 'FAST': gc = 'rgba(16,185,129,0.4)'; break; default: gc = 'rgba(59,130,246,0.3)'; }
     const g = ctx.createRadialGradient(sx, sy, 0, sx, sy, sz * 3); g.addColorStop(0, gc); g.addColorStop(1, 'transparent');
