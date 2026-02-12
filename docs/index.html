@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Aquilon — USV Obstacle Avoidance Simulation</title>
+    <meta name="description"
+        content="Interactive browser-based USV obstacle avoidance simulation with MOOS-IvP style viewer. Add, delete, and drag obstacles in real-time.">
+    <link
+        href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap"
+        rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+    <!-- HEADER -->
+    <div class="header">
+        <div class="header-left">
+            <div class="logo">
+                <div class="logo-icon">⚓</div>
+                <div>
+                    <div class="logo-text">Aquilon</div>
+                    <div class="logo-sub">USV Simulation</div>
+                </div>
+            </div>
+        </div>
+        <div class="header-controls">
+            <div class="speed-control">
+                <span style="font-size:10px;color:var(--text-dim);margin-right:2px;">Speed:</span>
+                <button class="speed-btn" data-speed="0.5">0.5×</button>
+                <button class="speed-btn active" data-speed="1">1×</button>
+                <button class="speed-btn" data-speed="2">2×</button>
+                <button class="speed-btn" data-speed="5">5×</button>
+                <button class="speed-btn" data-speed="10">10×</button>
+            </div>
+            <button class="btn btn-danger" id="btnReset">↺ Reset</button>
+            <button class="btn btn-primary" id="btnStartStop">▶ Start</button>
+        </div>
+    </div>
+
+    <!-- TOOLBAR -->
+    <div class="toolbar">
+        <span class="tool-label">Tools:</span>
+        <button class="btn btn-sm tool-btn btn-active" data-mode="select" onclick="setMode('select')"
+            title="Select/Drag (1)">🖱 Select</button>
+        <button class="btn btn-sm tool-btn" data-mode="add" onclick="setMode('add')"
+            title="Click to place obstacle (2)">➕ Add Obstacle</button>
+        <button class="btn btn-sm tool-btn" data-mode="delete" onclick="setMode('delete')"
+            title="Click obstacle to remove (3)">🗑 Delete</button>
+        <button class="btn btn-sm tool-btn" data-mode="measure" onclick="setMode('measure')"
+            title="Click two points to measure (4)">📏 Measure</button>
+        <button class="btn btn-sm" id="btnAddObs" title="Add obstacle with exact coordinates">📌 Place by
+            Coords</button>
+        <div class="toolbar-sep"></div>
+        <span class="tool-label">View:</span>
+        <button class="btn btn-sm btn-active" id="btnGrid" title="Toggle grid">Grid</button>
+        <button class="btn btn-sm btn-active" id="btnHash" title="Toggle hash labels">Hash</button>
+        <button class="btn btn-sm btn-active" id="btnDetect" title="Toggle detection zones">Zones</button>
+        <button class="btn btn-sm btn-active" id="btnTrail" title="Toggle vehicle trail">Trail</button>
+        <button class="btn btn-sm btn-active" id="btnMarkPath" title="Toggle planned path">Path</button>
+        <div class="toolbar-sep"></div>
+        <button class="btn btn-sm" id="btnCenterVehicle" title="Center on vehicle (C)">⊕ Center</button>
+        <button class="btn btn-sm" id="btnZoomFit" title="Fit survey area">⊞ Fit</button>
+        <button class="btn btn-sm" id="btnClearTrail">Clear Trail</button>
+        <button class="btn btn-sm" id="btnClearMeasure">Clear Measures</button>
+    </div>
+
+    <!-- MAIN -->
+    <div class="main">
+        <div class="canvas-container">
+            <canvas id="simCanvas"></canvas>
+            <div class="state-badge" id="stateBadge"><span class="dot"></span><span id="stateText">IDLE</span></div>
+            <div class="coords-overlay" id="coordsOverlay">(0, 0)</div>
+            <div class="time-overlay" id="timeOverlay">T+0.0s | 1×</div>
+            <div class="measure-overlay" id="measureOverlay"></div>
+            <div class="tooltip" id="tooltip"></div>
+        </div>
+
+        <div class="side-panel">
+            <!-- Navigation Stats -->
+            <div class="panel-section">
+                <div class="panel-title">Navigation</div>
+                <div class="stats-grid">
+                    <div class="stat-card">
+                        <div class="stat-label">Speed</div>
+                        <div class="stat-value" id="statSpeed">0.0<span class="stat-unit">m/s</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Heading</div>
+                        <div class="stat-value" id="statHeading">0°</div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Position X</div>
+                        <div class="stat-value" id="statX">0<span class="stat-unit">m</span></div>
+                    </div>
+                    <div class="stat-card">
+                        <div class="stat-label">Position Y</div>
+                        <div class="stat-value" id="statY">0<span class="stat-unit">m</span></div>
+                    </div>
+                    <div class="stat-card wide">
+                        <div class="stat-label">Nearest Obstacle</div>
+                        <div class="stat-value" id="statNearest">—<span class="stat-unit">m</span></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Mission Progress -->
+            <div class="panel-section">
+                <div class="panel-title">Mission Progress</div>
+                <div style="display:flex;justify-content:space-between;align-items:center;">
+                    <span class="wpt-text" id="wptText">WPT 0 / 16</span>
+                    <span style="font-size:10px;color:var(--text-dim)" id="wptPct">0%</span>
+                </div>
+                <div class="progress-bar-container">
+                    <div class="progress-bar" id="progressBar" style="width:0%"></div>
+                </div>
+            </div>
+
+            <!-- Scope (MOOS variable watch) -->
+            <div class="panel-section">
+                <div class="panel-title">Scope <span class="badge">MOOS Variables</span></div>
+                <table class="scope-table">
+                    <tbody id="scopeBody"></tbody>
+                </table>
+            </div>
+
+            <!-- Obstacles -->
+            <div class="panel-section">
+                <div class="panel-title">Obstacles <span class="badge" id="obsCount">8</span></div>
+                <div id="obstacleList"></div>
+            </div>
+
+            <!-- Event Log -->
+            <div class="panel-section">
+                <div class="panel-title">AppCast / Event Log</div>
+                <div class="event-log" id="eventLog"></div>
+            </div>
+
+            <!-- Legend -->
+            <div class="panel-section">
+                <div class="panel-title">Legend</div>
+                <div class="legend">
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="background:#3b82f6"></div>USV
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="background:#fbbf24"></div>Trail
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="background:#06b6d4;opacity:0.3"></div>Survey
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="background:rgba(239,68,68,0.4)"></div>Obstacle
+                    </div>
+                    <div class="legend-item">
+                        <div class="legend-swatch" style="border:2px dashed #f59e0b;background:transparent"></div>Flee
+                        Zone
+                    </div>
+                </div>
+            </div>
+
+            <!-- Keyboard Shortcuts -->
+            <div class="panel-section">
+                <div class="panel-title">Keyboard Shortcuts</div>
+                <div
+                    style="font-size:10px;color:var(--text-dim);line-height:1.8;font-family:'JetBrains Mono',monospace">
+                    <b>Space</b> Start/Pause &nbsp;
+                    <b>R</b> Reset &nbsp;
+                    <b>C</b> Center &nbsp;
+                    <b>Del</b> Remove selected<br>
+                    <b>1-4</b> Tools (Select/Add/Delete/Measure)<br>
+                    <b>Shift+Drag</b> Pan &nbsp;
+                    <b>Scroll</b> Zoom &nbsp;
+                    <b>DblClick</b> Center
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ADD OBSTACLE MODAL -->
+    <div class="modal-overlay" id="modalOverlay">
+        <div class="modal">
+            <h3>📌 Add Obstacle</h3>
+            <label>X Position (meters)</label>
+            <input type="number" id="obsX" value="200" step="10">
+            <label>Y Position (meters)</label>
+            <input type="number" id="obsY" value="-100" step="10">
+            <label>Radius (meters)</label>
+            <input type="number" id="obsR" value="4" min="1" max="20" step="1">
+            <label>Color</label>
+            <select id="obsColor">
+                <option value="#ef4444">Red</option>
+                <option value="#f97316">Orange</option>
+                <option value="#eab308">Yellow</option>
+                <option value="#e2e8f0">White</option>
+                <option value="#8b5cf6">Purple</option>
+                <option value="#06b6d4">Cyan</option>
+            </select>
+            <div class="modal-actions">
+                <button class="btn" id="btnModalCancel">Cancel</button>
+                <button class="btn btn-primary" id="btnModalAdd">Add Obstacle</button>
+            </div>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+
+</html>
